@@ -1,0 +1,7 @@
+FROM bde2020/spark-base:latest
+COPY target/grupo5-1.0-SNAPSHOT.jar /
+ENTRYPOINT ["/spark/bin/spark-submit", "--executor-memory","4g", "--driver-memory", "4g", "--class", "grupo5.Top10", "--master", "spark://spark-master:7077", "/grupo5-1.0-SNAPSHOT.jar"]
+
+#ENTRYPOINT ["/spark/bin/spark-submit", "--executor-memory","4g", "--driver-memory", "4g", "--class", "grupo5.TopGenres", "--master", "spark://spark-master:7077", "/grupo5-1.0-SNAPSHOT.jar"]
+#ENTRYPOINT ["/spark/bin/spark-submit", "--executor-memory","4g", "--driver-memory", "4g", "--class", "grupo5.TopGenres", "--master", "spark://spark-master:7077", "/grupo5-1.0-SNAPSHOT.jar"]
+#ENTRYPOINT ["/spark/bin/spark-submit", "--executor-memory","4g", "--driver-memory", "4g", "--class", "grupo5.TopGenres", "--master", "spark://spark-master:7077", "/grupo5-1.0-SNAPSHOT.jar"], "--total-executor-cores","2"
