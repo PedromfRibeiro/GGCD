@@ -4,89 +4,90 @@ import org.apache.spark.api.java.JavaSparkContext;
 import org.sparkproject.guava.collect.Lists;
 import scala.Tuple2;
 
-import java.util.*;
+import java.util.List;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.ArrayList;
 
 public class Hits {
 
-    public static class MyComparator implements Comparator<Tuple2<String, Double>> {
-        @Override
-        public int compare(Tuple2<String,Double> value1, Tuple2<String,Double> value2) {
-            if (value1._2 > value2._2) return -1;
-            else return 1;
-        }
-    }
-
     public static void main(String[] args) {
 
+        // spark configuration
         SparkConf conf = new SparkConf().setMaster("local").setAppName("Hits");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
-        // parse name.basics file to create pairs (tconst, nconst) only for actors
-        JavaPairRDD<String, String> name_basics = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Classes/Data/name.basics.tsv.bz2")
-                // split atributes
+        // parse the file name.basics to create pairs (tconst, nconst), only for actors
+        JavaPairRDD<String, String> actors = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/name.basics.tsv.gz")
+                // split attributes
                 .map(l -> l.split("\t"))
                 // ignore header
                 .filter(l -> !l[0].equals("nconst"))
-                // filter actors
+                // ignore non actors
                 .filter(l -> l[4].contains("actor") || l[4].contains("actress"))
-                // create list of pairs (nconst, [tconst, ...])
+                // create pairs (nconst, [tconst, ...])
                 .mapToPair(l -> new Tuple2<>(l[0], Arrays.asList(l[5].split(",")).iterator()))
-                // flat pairs to [(nconst, tconst), ...]
+                // flat to [(nconst, tconst), ...]
                 .flatMapValues(l -> l)
                 // create pairs (tconst, nconst)
-                .mapToPair(l -> new Tuple2<>(l._2, l._1))
-                // caching
-                .cache();
+                .mapToPair(l -> new Tuple2<>(l._2, l._1));
 
-        // parse title.basics file to create pairs (tconst, primaryTitle) only for movies
-        JavaPairRDD<String, String> title_basics = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Classes/Data/title.basics.tsv.bz2")
-                // split atributes
+        // parse the file title.basics to create pairs (tconst, primaryTitle)
+        JavaPairRDD<String, String> titles = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/title.basics.tsv.gz")
+                // split attributes
                 .map(l -> l.split("\t"))
                 // ignore header
                 .filter(l -> !l[0].equals("tconst"))
-                // filter movies
-                .filter(l -> l[1].equals("movie"))
                 // create pairs (tconst, primaryTitle)
-                .mapToPair(l -> new Tuple2<>(l[0], l[2]))
-                // caching
-                .cache();
+                .mapToPair(l -> new Tuple2<>(l[0], l[2]));
 
-        // parse title.ratings file to create pairs (tconst, averageRating)
-        JavaPairRDD<String, Double> ratings = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Classes/Data/title.ratings.tsv.bz2")
+        // parse the file title.ratings to create pairs (tconst, averageRating)
+        JavaPairRDD<String, Double> ratings = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/title.ratings.tsv.gz")
                 // split atributes
                 .map(l -> l.split("\t"))
                 // ignore header
                 .filter(l -> !l[0].equals("tconst"))
                 // create pairs (tconst, averageRating)
-                .mapToPair(l -> new Tuple2<>(l[0], Double.parseDouble(l[1])))
-                // caching
-                .cache();
+                .mapToPair(l -> new Tuple2<>(l[0], Double.parseDouble(l[1])));
 
-        // join RDDs title_basics and ratings
-        JavaPairRDD<String, Tuple2<String, Double>> movie_ratings = title_basics.join(ratings); // (tconst, (primaryTitle, averageRating))
+        // join with ratings, creating pairs (tconst, (primaryTitle, averageRating))
+        JavaPairRDD<String, Tuple2<String, Double>> titles_ratings = titles.join(ratings);
 
-        // join RDDs name_basics and movie_ratings
-        List<Tuple2<String, Iterable<Tuple2<String, Double>>>> values = name_basics.join(movie_ratings) // (tconst, (nconst, (primaryTitle, averageRating)))
-                .mapToPair(l -> new Tuple2<>(l._2._1, new Tuple2<>(l._2._2._1, l._2._2._2)))            // (nconst, (primaryTitle, averageRating))
-                .groupByKey()                                                                           // (nconst, [(title, averageRating), ...]
+        // compute the top 10 best rated titles for each actor, creating pairs (nconst, [(title, averageRating), ...])
+        List<Tuple2<String, List<Tuple2<String, Double>>>> results = actors
+                // join with ratings, creating pairs (tconst, (nconst, (primaryTitle, averageRating)))
+                .join(titles_ratings)
+                // create pairs (nconst, (primaryTitle, averageRating))
+                .mapToPair(l -> new Tuple2<>(l._2._1, new Tuple2<>(l._2._2._1, l._2._2._2)))
+                // group by nconst, creating pairs (nconst, [(title, averageRating), ...])
+                .groupByKey()
+                // compute the top 10 best rated titles
+                .mapToPair(p -> {
+                    // sort titles
+                    List<Tuple2<String, Double>> list = Lists.newArrayList(p._2);
+                    Collections.sort(list, new Utils.MyComparatorD());
+                    // get top 10 titles
+                    if (list.size() >= 10) {
+                        List<Tuple2<String, Double>> top = new ArrayList(list.subList(0, 10));
+                        return new Tuple2<>(p._1, top);
+                    }
+                    else {
+                        List<Tuple2<String, Double>> top = new ArrayList(list.subList(0, list.size()));
+                        return new Tuple2<>(p._1, top);
+                    }
+                })
+                // run the job
                 .collect();
 
-        // sort and show results
-        for (Tuple2<String, Iterable<Tuple2<String, Double>>> value : values) {
-            List<Tuple2<String, Double>> list = new ArrayList<>(Lists.newArrayList(value._2));
-            Collections.sort(list, new MyComparator());
-
+        // show results
+        for (Tuple2<String, List<Tuple2<String, Double>>> value : results) {
             System.out.println(value._1 + ":");
-            if (list.size() >= 10) {
-                for (int i = 0; i < 10; i++) {
-                    System.out.println("  > " + list.get(i)._1 + " (average rating = " + list.get(i)._2 + ")");
-                }
-            }
-            else {
-                for (int i = 0; i < list.size(); i++) {
-                    System.out.println("  > " + list.get(i)._1 + " (average rating = " + list.get(i)._2 + ")");
-                }
+            for (Tuple2<String, Double> title : value._2) {
+                System.out.println("  > " + title._1 + " (average rating = " + title._2 + ")");
             }
         }
+
+        // close spark context
+        sc.close();
     }
 }

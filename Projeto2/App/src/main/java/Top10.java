@@ -1,72 +1,76 @@
-import com.google.common.collect.Iterables;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.sparkproject.guava.collect.Lists;
 import scala.Tuple2;
 
-import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
+import java.util.ArrayList;
 
 public class Top10 {
 
-    /**
-     * Tuple2's Comparator
-     */
-    public static class MyComparator implements Serializable, Comparator<Tuple2<Integer, String>> {
-        @Override
-        public int compare(Tuple2<Integer, String> t1, Tuple2<Integer, String> t2) {
-            return t1._1.compareTo(t2._1);
-        }
-    }
-
     public static void main(String[] args) {
+
         long time = System.currentTimeMillis();
 
-        // Spark configuration
+        // spark configuration
         SparkConf conf = new SparkConf().setMaster("local").setAppName("Top10");
         JavaSparkContext sc = new JavaSparkContext(conf);
-        /**
-         * !Initial processing of the "title.principals.tsv" file
-         **0 - string tconst     - alphanumeric unique identifier of the title
-         **1 - int    ordering   – a number to uniquely identify rows for a given titleId
-         **2 - string nconst     - alphanumeric unique identifier of the name/person
-         **3 - string category   - the category of job that person was in
-         **4 - string job        - the specific job title if applicable, else '\N'
-         **5 - string characters - the name of the character played if applicable, else '\N'
-         */
-        List<Tuple2<Integer, String>> top10 = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Classes/Data/title.principals.tsv.bz2")
-                .map(l -> l.split("\t"))
-                .filter(l -> !l[0].equals("tconst"))
-                .mapToPair(l -> new Tuple2<>(l[2], l[0]))
-                .groupByKey()
-                .mapToPair(p -> new Tuple2<>(Iterables.size(p._2), p._1))
-                .top(10, new MyComparator());
 
-        List<String> top10ActorsIds = new ArrayList<>();
-        top10.forEach(t -> top10ActorsIds.add(t._2));
-        /**
-         * ! Initial processing of the "name.basics.tsv" file
-         * * 0 - string   nconst            - alphanumeric unique identifier of the name/person
-         * * 1 - string   primaryName       – name by which the person is most often credited
-         * * 2 - YYYY     birthYear
-         * * 3 - YYYY     deathYear         – if not applicable = '\N'
-         * * 4 - string[] primaryProfession – the top-3 professions of the person
-         * * 5 - int[]    knownForTitles    – titles the person is known for
-         */
-        Map<String, String> names = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Classes/Data/name.basics.tsv.bz2")
+        // compute the top 10 actors by number of titles, creating pairs (nconst, number of titles)
+        List<Tuple2<String, Integer>> top10 = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/title.principals.tsv.gz")
+                // split attributes
                 .map(l -> l.split("\t"))
-                .filter(l -> !l[0].equals("nconst") && !l[1].equals("primaryName") && top10ActorsIds.contains(l[0]))
+                // ignore header
+                .filter(l -> !l[0].equals("tconst"))
+                // ignore non actors
+                .filter(l -> l[3].contains("actor") || l[3].contains("actress"))
+                // create pairs (nconst, tconst)
+                .mapToPair(l -> new Tuple2<>(l[2], l[0]))
+                // group by nconst, creating pairs (nconst, [tconst, ...])
+                .groupByKey()
+                // create pairs (nconst, number of titles)
+                .mapToPair(p -> new Tuple2<>(p._1, Lists.newArrayList(p._2).size()))
+                // compute the top 10 actors by number of titles
+                .top(10, new Utils.MyComparatorIA());
+
+        // create a list with the ids (nconst) of the top 10 actors
+        List<String> top10Ids = new ArrayList<>();
+        top10.forEach(t -> top10Ids.add(t._1));
+
+        // compute the number of titles for the top 10 actors, creating pairs (primaryName, number of titles)
+        List<Tuple2<String, Integer>> results = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/name.basics.tsv.gz")
+                // split attributes
+                .map(l -> l.split("\t"))
+                // ignore header
+                .filter(l -> !l[0].equals("nconst"))
+                // ignore non top 10 actors
+                .filter(l -> top10Ids.contains(l[0]))
+                // create pairs (nconst, primaryName)
                 .mapToPair(l -> new Tuple2<>(l[0], l[1]))
-                .collectAsMap();
-        // Output result
-        System.out.println("\nTop 10:\n");
-        for (Tuple2<Integer, String> t : top10) {
-            System.out.println(names.get(t._2) + " : " + t._1);
+                // create pairs (primaryName, number of titles)
+                .mapToPair(p -> {
+                    // find the number of titles
+                    Tuple2<String, Integer> tuple = top10.stream()
+                            .filter(t -> t._1.equals(p._1))
+                            .findAny()
+                            .orElse(null);
+                    return new Tuple2<>(p._2, tuple._2);
+                })
+                // create pairs (number of titles, primaryName)
+                .mapToPair(p -> new Tuple2<>(p._2, p._1))
+                // sort by number of titles, in descending order
+                .sortByKey(false)
+                // create pairs (primaryName, number of titles)
+                .mapToPair(p -> new Tuple2<>(p._2, p._1))
+                // run the job
+                .collect();
+
+        // show results
+        for (Tuple2<String, Integer> value : results) {
+            System.out.println(value._1 + " with " + value._2 + " titles");
         }
-        System.out.println();
-        // Close spark context
+
+        // close spark context
         sc.close();
 
         System.out.println("\nTime: " + (System.currentTimeMillis() - time) + " ms");
