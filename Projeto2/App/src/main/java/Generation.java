@@ -13,11 +13,11 @@ public class Generation {
     public static void main(String[] args) {
 
         // spark configuration
-        SparkConf conf = new SparkConf().setMaster("local").setAppName("Generation");
+        SparkConf conf = new SparkConf().setAppName("Generation");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // parse the file title.principals to create pairs (nconst, number of titles)
-        JavaPairRDD<String, Integer> sortedActors = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/title.principals.tsv.gz")
+        JavaPairRDD<String, Integer> sortedActors = sc.textFile("hdfs:///title.principals.tsv.gz")
                 // split attributes
                 .map(l -> l.split("\t"))
                 // ignore header
@@ -32,7 +32,7 @@ public class Generation {
                 .mapToPair(p -> new Tuple2<>(p._1, Lists.newArrayList(p._2).size()));
 
         // parse the file name.basics to create pairs (nconst, decade)
-        JavaPairRDD<String, String> generations = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/name.basics.tsv.gz")
+        JavaPairRDD<String, String> generations = sc.textFile("hdfs:///name.basics.tsv.gz")
                 // split attributes
                 .map(l -> l.split("\t"))
                 // ignore header

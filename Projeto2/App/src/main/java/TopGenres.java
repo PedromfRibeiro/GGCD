@@ -11,11 +11,11 @@ public class TopGenres {
     public static void main(String[] args) {
 
         // spark configuration
-        SparkConf conf = new SparkConf().setMaster("local").setAppName("TopGenres");
+        SparkConf conf = new SparkConf().setAppName("TopGenres");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
-        // compute the most popular genre for each decade, creating pairs (startYear, genre)
-        List<Tuple2<String, Tuple2<String, Integer>>> decades = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/title.basics.tsv.gz")
+        // compute the most popular genre for each decade, creating pairs (decade, genre)
+        List<Tuple2<String, Tuple2<String, Integer>>> decades = sc.textFile("hdfs:///title.basics.tsv.gz")
                 // split attributes
                 .map(l -> l.split("\t"))
                 // ignore header

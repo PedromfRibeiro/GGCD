@@ -14,11 +14,11 @@ public class Hits {
     public static void main(String[] args) {
 
         // spark configuration
-        SparkConf conf = new SparkConf().setMaster("local").setAppName("Hits");
+        SparkConf conf = new SparkConf().setAppName("Hits");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // parse the file name.basics to create pairs (tconst, nconst), only for actors
-        JavaPairRDD<String, String> actors = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/name.basics.tsv.gz")
+        JavaPairRDD<String, String> actors = sc.textFile("hdfs:///name.basics.tsv.gz")
                 // split attributes
                 .map(l -> l.split("\t"))
                 // ignore header
@@ -33,7 +33,7 @@ public class Hits {
                 .mapToPair(l -> new Tuple2<>(l._2, l._1));
 
         // parse the file title.basics to create pairs (tconst, primaryTitle)
-        JavaPairRDD<String, String> titles = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/title.basics.tsv.gz")
+        JavaPairRDD<String, String> titles = sc.textFile("hdfs:///title.basics.tsv.gz")
                 // split attributes
                 .map(l -> l.split("\t"))
                 // ignore header
@@ -42,7 +42,7 @@ public class Hits {
                 .mapToPair(l -> new Tuple2<>(l[0], l[2]));
 
         // parse the file title.ratings to create pairs (tconst, averageRating)
-        JavaPairRDD<String, Double> ratings = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/title.ratings.tsv.gz")
+        JavaPairRDD<String, Double> ratings = sc.textFile("hdfs:///title.ratings.tsv.gz")
                 // split atributes
                 .map(l -> l.split("\t"))
                 // ignore header

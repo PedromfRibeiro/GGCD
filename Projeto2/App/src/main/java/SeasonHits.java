@@ -12,11 +12,11 @@ public class SeasonHits {
     public static void main(String[] args) {
 
         // spark configuration
-        SparkConf conf = new SparkConf().setMaster("local").setAppName("SeasonHits");
+        SparkConf conf = new SparkConf().setAppName("SeasonHits");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // parse the file title.basics to create pairs (tconst, startYear)
-        JavaPairRDD<String, Tuple2<String, String>> titles = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/title.basics.tsv.gz")
+        JavaPairRDD<String, Tuple2<String, String>> titles = sc.textFile("hdfs:///title.basics.tsv.gz")
                 // split attributes
                 .map(l -> l.split("\t"))
                 // ignore header
@@ -27,7 +27,7 @@ public class SeasonHits {
                 .mapToPair(l -> new Tuple2<>(l[0], new Tuple2<>(l[2], l[5])));
 
         // parse the file title.ratings to create pairs (tconst, averageRating)
-        JavaPairRDD<String, Double> ratings = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/title.ratings.tsv.gz")
+        JavaPairRDD<String, Double> ratings = sc.textFile("hdfs:///title.ratings.tsv.gz")
                 // split atributes
                 .map(l -> l.split("\t"))
                 // ignore header

@@ -13,11 +13,11 @@ public class Top10 {
         long time = System.currentTimeMillis();
 
         // spark configuration
-        SparkConf conf = new SparkConf().setMaster("local").setAppName("Top10");
+        SparkConf conf = new SparkConf().setAppName("Top10");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // compute the top 10 actors by number of titles, creating pairs (nconst, number of titles)
-        List<Tuple2<String, Integer>> top10 = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/title.principals.tsv.gz")
+        List<Tuple2<String, Integer>> top10 = sc.textFile("hdfs:///title.principals.tsv.gz")
                 // split attributes
                 .map(l -> l.split("\t"))
                 // ignore header
@@ -38,7 +38,7 @@ public class Top10 {
         top10.forEach(t -> top10Ids.add(t._1));
 
         // compute the number of titles for the top 10 actors, creating pairs (primaryName, number of titles)
-        List<Tuple2<String, Integer>> results = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Spark/Data/name.basics.tsv.gz")
+        List<Tuple2<String, Integer>> results = sc.textFile("hdfs:///name.basics.tsv.gz")
                 // split attributes
                 .map(l -> l.split("\t"))
                 // ignore header

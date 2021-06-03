@@ -12,11 +12,11 @@ public class Friends {
     public static void main(String[] args) {
 
         // spark configuration
-        SparkConf conf = new SparkConf().setMaster("local").setAppName("Friends");
+        SparkConf conf = new SparkConf().setAppName("Friends");
         JavaSparkContext sc = new JavaSparkContext(conf);
 
         // compute the collaborators of each actor, creating pairs (nconst, [nconst, ...])
-        List<Tuple2<String,Set<String>>> friends = sc.textFile("file:///Users/goncalo/Documents/University/GGCD/Classes/Data/title.principals.tsv.bz2")
+        List<Tuple2<String,Set<String>>> friends = sc.textFile("hdfs:///title.principals.tsv.gz")
                 // split attributes
                 .map(l -> l.split("\t"))
                 // ignore header
