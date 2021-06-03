@@ -22,7 +22,7 @@ public class Friends {
                 // ignore header
                 .filter(l -> !l[0].equals("tconst"))
                 // ignore non actors
-                .filter(l -> l[3].contains("actor") || l[3].contains("actress"))
+                .filter(l -> l[3].equals("actor") || l[3].equals("actress"))
                 // create pairs (tconst, nconst)
                 .mapToPair(l -> new Tuple2<>(l[0], l[2]))
                 // group by tconst, creating pairs (tconst, [nconst, ...])
@@ -54,7 +54,7 @@ public class Friends {
 
         // show results
         for (Tuple2<String, Set<String>> value : friends) {
-            System.out.println(value._1 + ":");
+            System.out.println("\n" + value._1 + ":");
             for (String collaborator : value._2) {
                 System.out.println("  > " + collaborator);
             }

@@ -82,7 +82,7 @@ public class Base {
 
         // show results
         for (Tuple2<String, Tuple2<Tuple2<String, Integer>, Tuple2<Integer, Double>>> value : results) {
-            System.out.println(value._1 + ":");
+            System.out.println("\n" + value._1 + ":");
             System.out.println("  > name: " + value._2._1._1);
             System.out.println("  > age: " + value._2._1._2 + " years");
             System.out.println("  > number of titles: " + value._2._2._1);
